@@ -1,0 +1,125 @@
+IoT Vehicle Tracking & Theft Prevention System — Circuit Diagram
+================================================================
+
+CONNECTION TABLE
+----------------
+
+1. ESP32 ↔ GPS Module (NEO-6M / NEO-8M)
+   ┌───────────────┬──────────────────┐
+   │ GPS Pin       │ ESP32 Pin        │
+   ├───────────────┼──────────────────┤
+   │ VCC           │ 3.3V             │
+   │ GND           │ GND              │
+   │ TX (output)   │ GPIO 16 (RX2)    │
+   │ RX (input)    │ GPIO 17 (TX2)    │
+   └───────────────┴──────────────────┘
+   Note: GPS module operates at 3.3V logic — safe to connect
+   directly to ESP32 GPIO pins.
+
+2. ESP32 ↔ Active Buzzer
+   ┌───────────────┬──────────────────┐
+   │ Buzzer Pin    │ ESP32 Pin        │
+   ├───────────────┼──────────────────┤
+   │ + (positive)  │ GPIO 25          │
+   │ - (negative)  │ GND              │
+   └───────────────┴──────────────────┘
+   Note: Active buzzer only (not passive). No transistor needed
+   for 3.3V logic if buzzer draws < 40mA. Otherwise use a
+   2N2222 NPN transistor between GPIO and buzzer.
+
+3. ESP32 ↔ Red LED (Theft Alert)
+   ┌───────────────┬──────────────────┐
+   │ LED Pin       │ Connection       │
+   ├───────────────┼──────────────────┤
+   │ Anode (+)     │ GPIO 26          │
+   │ Cathode (-)   │ GND via 330Ω     │
+   └───────────────┴──────────────────┘
+
+4. ESP32 ↔ Green LED (Status OK)
+   ┌───────────────┬──────────────────┐
+   │ LED Pin       │ Connection       │
+   ├───────────────┼──────────────────┤
+   │ Anode (+)     │ GPIO 27          │
+   │ Cathode (-)   │ GND via 330Ω     │
+   └───────────────┴──────────────────┘
+
+5. Power Supply
+   ┌───────────────────────────────────────┐
+   │ For development board testing:        │
+   │   USB 5V → ESP32 USB-C / Micro-USB   │
+   │ For vehicle installation:             │
+   │   12V car battery → LM7805 → 5V      │
+   │   5V → AMS1117-3.3 → 3.3V for GPS   │
+   └───────────────────────────────────────┘
+
+ASCII CIRCUIT DIAGRAM
+---------------------
+
+  +3.3V ─────┬──────────────────────┐
+             │                      │
+           [GPS]                 [ESP32]
+           VCC                      │
+           TX ───────────── GPIO16 (RX2)
+           RX ───────────── GPIO17 (TX2)
+           GND ────┐         │
+                   │         GPIO25 ──── [Buzzer+] ──── GND
+                   │         │
+                   │         GPIO26 ──── [330Ω] ──── [RED LED] ──── GND
+                   │         │
+                   │         GPIO27 ──── [330Ω] ──── [GRN LED] ──── GND
+                   │         │
+  GND ────────────┴─────────┘
+
+
+COMPONENT EXPLANATIONS
+----------------------
+
+ESP32 Development Board
+  Purpose : Brain of the system. Reads GPS, processes geofence
+            logic, connects to WiFi, pushes data to cloud.
+  Why ESP32: Built-in dual-core CPU, WiFi, Bluetooth.
+  Cost    : ~₹400–₹600 (India)
+
+NEO-6M GPS Module
+  Purpose : Receives GPS satellite signals, outputs NMEA sentences
+            containing latitude, longitude, speed, and time.
+  Protocol: UART serial at 9600 baud
+  Accuracy: ~2.5m CEP (Circular Error Probability)
+  Cost    : ~₹250–₹400
+
+Active Buzzer
+  Purpose : Audible theft/geofence alert. Sounds immediately when
+            triggered by digital HIGH from ESP32.
+  Why active: Built-in oscillator, just needs HIGH/LOW signal.
+  Cost    : ~₹20–₹40
+
+LEDs (Red + Green)
+  Purpose : Visual status indicators.
+            Green = normal operation
+            Red   = alert triggered
+  Resistor: 330Ω current-limiting resistor mandatory
+  Cost    : ~₹5 each
+
+330Ω Resistors
+  Purpose : Current limiting for LEDs.
+            I = (3.3V - 2V) / 330Ω ≈ 4mA (safe for ESP32 GPIO)
+  Cost    : ~₹1 each
+
+SIMULATION ALTERNATIVE (No Hardware)
+--------------------------------------
+If you don't have hardware:
+  → Run: python main.py
+  → Opens python_simulation/ which uses gps_simulator.py
+  → Simulates GPS coordinates mathematically
+  → All alerts, logs, charts, and PDF work identically
+
+WOKWI / TINKERCAD SIMULATION
+------------------------------
+For browser-based circuit simulation:
+1. Visit https://wokwi.com
+2. Create new ESP32 project
+3. Add GPS component (TinyGPS++ library available)
+4. Wire as per connection table above
+5. Paste arduino_code/ESP32_Vehicle_Tracker.ino
+6. Run simulation — serial monitor shows GPS + alerts
+
