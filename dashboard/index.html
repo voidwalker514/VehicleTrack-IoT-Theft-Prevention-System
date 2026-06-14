@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IoT Vehicle Tracker — Dashboard</title>
+<meta name="description" content="Real-time IoT vehicle tracking and theft prevention dashboard"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0d0f1a; --card: #141728; --border: #1e2340;
+    --accent: #6c63ff; --danger: #ff4757; --warn: #ffa502;
+    --safe: #2ed573; --text: #e8eaf6; --muted: #8892b0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+
+  /* NAV */
+  nav{display:flex;align-items:center;justify-content:space-between;
+      padding:1rem 2rem;background:var(--card);border-bottom:1px solid var(--border);}
+  .logo{font-size:1.2rem;font-weight:700;color:var(--accent)}
+  .logo span{color:var(--text)}
+  .nav-status{display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--safe)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--safe);animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* LAYOUT */
+  .container{max-width:1400px;margin:0 auto;padding:1.5rem 2rem}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem}
+  .grid-3{display:grid;grid-template-columns:2fr 1fr;gap:1.5rem;margin-bottom:1.5rem}
+
+  /* STAT CARDS */
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:16px;
+             padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:.4rem;
+             transition:transform .2s;cursor:default}
+  .stat-card:hover{transform:translateY(-3px)}
+  .stat-label{font-size:.75rem;font-weight:600;text-transform:uppercase;
+              letter-spacing:.08em;color:var(--muted)}
+  .stat-value{font-size:2rem;font-weight:900}
+  .stat-sub{font-size:.78rem;color:var(--muted)}
+  .c-accent{color:var(--accent)} .c-danger{color:var(--danger)}
+  .c-warn{color:var(--warn)} .c-safe{color:var(--safe)}
+
+  /* PANEL */
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.4rem}
+  .panel-title{font-size:.85rem;font-weight:700;text-transform:uppercase;
+               letter-spacing:.08em;color:var(--muted);margin-bottom:1rem}
+
+  /* MAP PLACEHOLDER */
+  .map-area{background:linear-gradient(135deg,#101530 0%,#1a2040 100%);
+            border-radius:12px;height:340px;position:relative;overflow:hidden;
+            display:flex;align-items:center;justify-content:center}
+  .map-grid{position:absolute;inset:0;
+            background-image:linear-gradient(rgba(108,99,255,.08) 1px,transparent 1px),
+                             linear-gradient(90deg,rgba(108,99,255,.08) 1px,transparent 1px);
+            background-size:30px 30px}
+  .map-label{z-index:1;text-align:center}
+  .map-label p{color:var(--muted);font-size:.85rem;margin-top:.5rem}
+  .map-pin{font-size:3rem;animation:bounce .8s ease-in-out infinite alternate}
+  @keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+
+  /* ALERT BADGE */
+  .badge{display:inline-block;padding:.2rem .7rem;border-radius:20px;
+         font-size:.72rem;font-weight:700;text-transform:uppercase}
+  .badge-safe{background:rgba(46,213,115,.15);color:var(--safe)}
+  .badge-warn{background:rgba(255,165,2,.15);color:var(--warn)}
+  .badge-crit{background:rgba(255,71,87,.15);color:var(--danger)}
+
+  /* ALERT TABLE */
+  .alert-table{width:100%;border-collapse:collapse;font-size:.82rem}
+  .alert-table th{text-align:left;padding:.6rem .8rem;color:var(--muted);
+                  font-weight:600;border-bottom:1px solid var(--border)}
+  .alert-table td{padding:.7rem .8rem;border-bottom:1px solid var(--border);vertical-align:middle}
+  .alert-table tr:last-child td{border-bottom:none}
+  .alert-table tr:hover td{background:rgba(108,99,255,.04)}
+
+  /* SPEEDOMETER (CSS) */
+  .speed-gauge{display:flex;flex-direction:column;align-items:center;gap:.5rem;padding:.5rem 0}
+  .gauge-ring{width:140px;height:140px;border-radius:50%;
+              background:conic-gradient(var(--accent) 0deg, var(--accent) calc(var(--pct)*3.6deg),
+                                       rgba(255,255,255,.08) calc(var(--pct)*3.6deg));
+              display:flex;align-items:center;justify-content:center;position:relative}
+  .gauge-inner{width:100px;height:100px;border-radius:50%;background:var(--card);
+               display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gauge-val{font-size:1.8rem;font-weight:900;color:var(--text)}
+  .gauge-unit{font-size:.7rem;color:var(--muted)}
+
+  /* TIMELINE */
+  .timeline{display:flex;flex-direction:column;gap:.8rem;max-height:300px;overflow-y:auto}
+  .tl-item{display:flex;gap:.8rem;align-items:flex-start}
+  .tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+  .tl-content{flex:1}
+  .tl-msg{font-size:.82rem;color:var(--text)}
+  .tl-time{font-size:.7rem;color:var(--muted)}
+
+  /* PROGRESS BAR */
+  .progress-wrap{margin-bottom:.8rem}
+  .progress-label{display:flex;justify-content:space-between;font-size:.78rem;
+                  color:var(--muted);margin-bottom:.3rem}
+  .progress-bar{height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+  .progress-fill{height:100%;border-radius:3px;transition:width 1s ease}
+
+  /* RESPONSIVE */
+  @media(max-width:900px){
+    .grid-4{grid-template-columns:1fr 1fr}
+    .grid-2,.grid-3{grid-template-columns:1fr}
+  }
+  @media(max-width:500px){
+    .grid-4{grid-template-columns:1fr}
+    nav{flex-direction:column;gap:.5rem}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">🚗 Vehicle<span>Tracker</span></div>
+  <div style="font-size:.8rem;color:var(--muted)">IoT Tracking & Theft Prevention System</div>
+  <div class="nav-status"><div class="dot"></div>Live Simulation Active</div>
+</nav>
+
+<div class="container">
+
+  <!-- STAT CARDS -->
+  <div class="grid-4">
+    <div class="stat-card">
+      <div class="stat-label">Current Speed</div>
+      <div class="stat-value c-accent" id="speed">45 <span style="font-size:1rem">km/h</span></div>
+      <div class="stat-sub">Threshold: 80 km/h</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Alert Status</div>
+      <div class="stat-value c-safe" id="status">SAFE</div>
+      <div class="stat-sub" id="alert-type">All Clear</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Distance from Base</div>
+      <div class="stat-value c-accent" id="dist">0.82 <span style="font-size:1rem">km</span></div>
+      <div class="stat-sub">Geofence: 2.0 km</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">GPS Pings Today</div>
+      <div class="stat-value c-accent" id="pings">45</div>
+      <div class="stat-sub" id="last-ping">Last: just now</div>
+    </div>
+  </div>
+
+  <!-- MAP + SPEED GAUGE -->
+  <div class="grid-3">
+    <div class="panel">
+      <div class="panel-title">📍 Live Vehicle Location</div>
+      <div class="map-area">
+        <div class="map-grid"></div>
+        <div class="map-label">
+          <div class="map-pin">📍</div>
+          <p id="coords">28.614200, 77.209500</p>
+          <p style="margin-top:.5rem">
+            <a id="maps-link" href="https://maps.google.com/?q=28.614200,77.209500"
+               target="_blank"
+               style="color:var(--accent);font-size:.8rem;text-decoration:none">
+              Open in Google Maps ↗
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:1.5rem">
+      <!-- Speedometer -->
+      <div class="panel">
+        <div class="panel-title">🏎️ Speed Gauge</div>
+        <div class="speed-gauge">
+          <div class="gauge-ring" id="gauge" style="--pct:45">
+            <div class="gauge-inner">
+              <div class="gauge-val" id="g-val">45</div>
+              <div class="gauge-unit">km/h</div>
+            </div>
+          </div>
+          <span class="badge badge-safe" id="speed-badge">NORMAL</span>
+        </div>
+      </div>
+
+      <!-- Geofence progress -->
+      <div class="panel">
+        <div class="panel-title">🔵 Geofence Status</div>
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Distance from centre</span>
+            <span id="pct-label">41%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="geo-bar"
+                 style="width:41%;background:var(--safe)"></div>
+          </div>
+        </div>
+        <div style="font-size:.78rem;color:var(--muted)">
+          Safe zone radius: 2.0 km &nbsp;|&nbsp;
+          Status: <span id="geo-label" style="color:var(--safe)">INSIDE ✅</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALERTS TABLE + TIMELINE -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">🚨 Alert Log</div>
+      <table class="alert-table" id="alert-table">
+        <thead>
+          <tr>
+            <th>Time</th><th>Type</th><th>Level</th><th>Location</th>
+          </tr>
+        </thead>
+        <tbody id="alert-body">
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">📋 Event Timeline</div>
+      <div class="timeline" id="timeline"></div>
+    </div>
+  </div>
+
+  <!-- SCENARIO BUTTONS -->
+  <div class="panel" style="margin-bottom:1.5rem">
+    <div class="panel-title">🎮 Simulate Scenario</div>
+    <div style="display:flex;gap:.8rem;flex-wrap:wrap">
+      <button onclick="runScenario('normal')"  class="btn btn-safe">✅ Normal Drive</button>
+      <button onclick="runScenario('parked')"  class="btn btn-info">🅿️  Parked</button>
+      <button onclick="runScenario('theft')"   class="btn btn-danger">🚨 Theft</button>
+      <button onclick="runScenario('geofence')" class="btn btn-warn">⚠️  Geofence Breach</button>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<style>
+  .btn{padding:.55rem 1.2rem;border:none;border-radius:8px;font-size:.82rem;
+       font-weight:600;cursor:pointer;transition:all .2s}
+  .btn-safe  {background:rgba(46,213,115,.15);color:var(--safe);border:1px solid var(--safe)}
+  .btn-info  {background:rgba(108,99,255,.15);color:var(--accent);border:1px solid var(--accent)}
+  .btn-danger{background:rgba(255,71,87,.15);color:var(--danger);border:1px solid var(--danger)}
+  .btn-warn  {background:rgba(255,165,2,.15);color:var(--warn);border:1px solid var(--warn)}
+  .btn:hover {opacity:.75;transform:translateY(-1px)}
+</style>
+
+<script>
+/* ── Simulation Data ───────────────────────────────────── */
+const SCENARIOS = {
+  normal:   {label:"Normal Drive",  speed:[30,45,55,40,50],    dist:[0.5,0.7,0.9,0.6,0.8],   level:"SAFE",    badge:"NORMAL",   col:"safe"},
+  parked:   {label:"Parked",        speed:[0,1,0,2,0],         dist:[0.3,0.3,0.3,0.3,0.3],   level:"SAFE",    badge:"PARKED",   col:"safe"},
+  theft:    {label:"Theft",         speed:[95,110,125,105,118],dist:[0.8,1.2,1.9,2.6,3.4],   level:"CRITICAL",badge:"THEFT!",   col:"danger"},
+  geofence: {label:"Geofence Breach",speed:[60,65,62,58,70],  dist:[1.5,2.1,2.8,3.5,4.2],   level:"CRITICAL",badge:"BREACH",   col:"danger"},
+};
+
+let step = 0;
+let currentScenario = SCENARIOS.normal;
+let pingCount = 0;
+
+const COORDS_BASE = {lat:28.6139, lon:77.2090};
+
+function fmtTime() {
+  return new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+}
+
+function updateDashboard() {
+  const s    = currentScenario;
+  const idx  = step % s.speed.length;
+  const spd  = s.speed[idx];
+  const dist = s.dist[idx];
+  const lat  = (COORDS_BASE.lat + (dist * 0.005)).toFixed(6);
+  const lon  = (COORDS_BASE.lon + (dist * 0.003)).toFixed(6);
+  const pct  = Math.min(Math.round((dist / 2.0) * 100), 100);
+  pingCount++;
+
+  // Stat cards
+  document.getElementById("speed").innerHTML = `${spd} <span style="font-size:1rem">km/h</span>`;
+  document.getElementById("dist").innerHTML  = `${dist.toFixed(2)} <span style="font-size:1rem">km</span>`;
+  document.getElementById("pings").textContent = pingCount;
+  document.getElementById("last-ping").textContent = "Last: " + fmtTime();
+
+  // Status
+  const lvl = s.level;
+  const col = lvl==="CRITICAL"?"var(--danger)":lvl==="WARNING"?"var(--warn)":"var(--safe)";
+  document.getElementById("status").textContent = lvl;
+  document.getElementById("status").style.color = col;
+  document.getElementById("alert-type").textContent = s.label;
+
+  // Gauge
+  document.getElementById("gauge").style.setProperty("--pct", Math.min(spd,120));
+  document.getElementById("g-val").textContent = spd;
+  const speedBadge = document.getElementById("speed-badge");
+  speedBadge.textContent = s.badge;
+  speedBadge.className = "badge " + (s.col==="danger"?"badge-crit":s.col==="warn"?"badge-warn":"badge-safe");
+
+  // Coords + Maps link
+  document.getElementById("coords").textContent = `${lat}, ${lon}`;
+  document.getElementById("maps-link").href = `https://maps.google.com/?q=${lat},${lon}`;
+
+  // Geofence bar
+  const inside = dist <= 2.0;
+  document.getElementById("geo-bar").style.width = pct + "%";
+  document.getElementById("geo-bar").style.background = inside ? "var(--safe)" : "var(--danger)";
+  document.getElementById("pct-label").textContent = pct + "%";
+  const geoLbl = document.getElementById("geo-label");
+  geoLbl.textContent = inside ? "INSIDE ✅" : "OUTSIDE ⚠️";
+  geoLbl.style.color = inside ? "var(--safe)" : "var(--danger)";
+
+  // Alert log (only non-SAFE)
+  if (lvl !== "SAFE") addAlertRow(fmtTime(), s.label, lvl, `${lat},${lon}`);
+
+  // Timeline
+  addTimelineItem(fmtTime(), `${s.label} — Speed: ${spd} km/h, Dist: ${dist.toFixed(2)}km`, lvl);
+  step++;
+}
+
+function addAlertRow(time, type, level, loc) {
+  const tbody = document.getElementById("alert-body");
+  const cls   = level==="CRITICAL"?"badge-crit":level==="WARNING"?"badge-warn":"badge-safe";
+  const tr    = document.createElement("tr");
+  tr.innerHTML = `<td>${time}</td><td>${type}</td>
+    <td><span class="badge ${cls}">${level}</span></td>
+    <td style="font-size:.75rem">${loc}</td>`;
+  tbody.insertBefore(tr, tbody.firstChild);
+  if (tbody.children.length > 8) tbody.removeChild(tbody.lastChild);
+}
+
+function addTimelineItem(time, msg, level) {
+  const tl  = document.getElementById("timeline");
+  const col = level==="CRITICAL"?"var(--danger)":level==="WARNING"?"var(--warn)":"var(--safe)";
+  const div = document.createElement("div");
+  div.className = "tl-item";
+  div.innerHTML = `<div class="tl-dot" style="background:${col}"></div>
+    <div class="tl-content">
+      <div class="tl-msg">${msg}</div>
+      <div class="tl-time">${time}</div>
+    </div>`;
+  tl.insertBefore(div, tl.firstChild);
+  if (tl.children.length > 10) tl.removeChild(tl.lastChild);
+}
+
+function runScenario(name) {
+  currentScenario = SCENARIOS[name];
+  step = 0;
+}
+
+/* Auto-update every 2 seconds */
+updateDashboard();
+setInterval(updateDashboard, 2000);
+</script>
+
+</body>
+</html>
